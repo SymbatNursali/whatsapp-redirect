@@ -1,0 +1,5 @@
+export function buildWhatsAppUrl(phone: string, message: string) {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+}
