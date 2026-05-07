@@ -7,12 +7,13 @@ export type ClientConfig = {
   title: string;
   subtitle: string;
   buttonText: string;
+  accessToken?: string;
 };
 
 export const clients: Record<string, ClientConfig> = {
   client1: {
-    slug: "client1",
-    name: "Client 1",
+    slug: "Лидия_таро",
+    name: "Лидия_таро",
     pixelId: "TIKTOK_PIXEL_ID_1",
     phone: "77000000001",
     whatsappMessage: "Здравствуйте, хочу узнать подробнее",
@@ -33,14 +34,15 @@ export const clients: Record<string, ClientConfig> = {
   },
 
   client3: {
-    slug: "client3",
-    name: "Client 3",
-    pixelId: "TIKTOK_PIXEL_ID_3",
-    phone: "77000000003",
-    whatsappMessage: "Здравствуйте, хочу узнать подробнее",
+    slug: "Анна_гадалка",
+    name: "Анна_гадалка",
+    pixelId: "D7U6MHRC77U9TECLJ2QG",
+    phone: "996559515561",
+    whatsappMessage: "Здравствуйте, хочу разбор",
     title: "Оставьте заявку в WhatsApp",
     subtitle: "Нажмите на кнопку ниже, чтобы перейти в WhatsApp.",
     buttonText: "Перейти в WhatsApp",
+    accessToken: "da2e22d8cce901e8809b81dd7a65be05a5981d2c",
   },
 };
 
