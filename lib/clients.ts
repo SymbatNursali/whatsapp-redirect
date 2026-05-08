@@ -47,5 +47,14 @@ export const clients: Record<string, ClientConfig> = {
 };
 
 export function getClientBySlug(slug: string) {
-  return clients[slug] ?? null;
+  // Try finding by key (client1, client2, etc.)
+  if (clients[slug]) return clients[slug];
+
+  // Try finding by the slug property value (handling Cyrillic and custom names)
+  const decodedSlug = decodeURIComponent(slug);
+  return (
+    Object.values(clients).find(
+      (c) => c.slug === slug || c.slug === decodedSlug
+    ) ?? null
+  );
 }
