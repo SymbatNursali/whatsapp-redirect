@@ -18,3 +18,4 @@ export function getTikTokPixelScript(pixelId: string) {
 }(window, document, 'ttq');
 `;
 }
+

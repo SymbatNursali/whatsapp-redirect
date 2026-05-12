@@ -3,12 +3,11 @@
 import { useEffect } from "react";
 import Script from "next/script";
 import { notFound, useParams } from "next/navigation";
-import { clients } from "@/lib/clients";
+import { client } from "@/lib/clients";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { getTikTokPixelScript } from "@/lib/tiktok";
 
-// ─── ВРЕМЕННЫЙ ФИХ: ВСЕГДА CLIENT3 ──────────────────────────────────────────
-const ACTIVE_CLIENT_KEY = "client3";
+import { trackRedirectAction } from "./actions";
 
 export default function RedirectPage() {
   const params = useParams();
@@ -16,37 +15,35 @@ export default function RedirectPage() {
     ? params.slug[0]
     : (params.slug ?? "unknown");
 
-  const client = clients[ACTIVE_CLIENT_KEY];
-
-  if (!client) {
-    notFound();
-  }
-
   const whatsappUrl = buildWhatsAppUrl(client.phone, client.whatsappMessage);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const win = window as any;
+      const eventId = `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Отправляем серверное событие (Conversion API)
+      trackRedirectAction(sourceSlug, eventId).catch(console.error);
 
       // Даем небольшую паузу для загрузки пикселя и отправляем события
       const timer = setTimeout(() => {
         try {
           if (win.ttq) {
-            // Отправляем Contact при автоматическом переходе
+            // Отправляем Contact при автоматическом переходе с тем же eventId для дедупликации
             win.ttq.track("Contact", {
               content_name: "auto_redirect",
               content_type: "lead",
               client_slug: client.slug,
               source_slug: sourceSlug,
-            });
+            }, { event_id: eventId });
             
-            // Также отправим ViewContent для полноты данных
+            // Также отправим ViewContent
             win.ttq.track("ViewContent", {
               content_name: "redirect_page",
               content_type: "lead",
               client_slug: client.slug,
               source_slug: sourceSlug,
-            });
+            }, { event_id: `view-${eventId}` });
           }
         } catch (error) {
           console.error("TikTok tracking error:", error);
@@ -54,7 +51,7 @@ export default function RedirectPage() {
 
         // Автоматический редирект
         window.location.href = whatsappUrl;
-      }, 500);
+      }, 300); // 300ms as requested for speed
 
       return () => clearTimeout(timer);
     }
@@ -70,18 +67,11 @@ export default function RedirectPage() {
         }}
       />
 
-      <main className="min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-center px-5">
-        <div className="flex flex-col items-center">
-          {/* Простой индикатор загрузки */}
-          <div className="w-10 h-10 border-4 border-neutral-800 border-t-white rounded-full animate-spin mb-6"></div>
-          
-          <h1 className="text-xl font-semibold mb-2">Переходим в WhatsApp...</h1>
-          <p className="text-neutral-400 text-sm">Пожалуйста, подождите секунду.</p>
-          
-          {/* Скрытая ссылка на всякий случай */}
-          <a href={whatsappUrl} className="mt-8 text-xs text-neutral-600 underline">
-            Нажмите здесь, если переход не произошел автоматически
-          </a>
+      <main className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          {/* Минимальный индикатор для прохождения модерации TikTok */}
+          <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-neutral-500 text-sm">Переадресация...</p>
         </div>
       </main>
     </>
