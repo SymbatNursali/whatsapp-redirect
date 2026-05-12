@@ -11,8 +11,8 @@ export async function trackRedirectAction(sourceSlug: string, eventId: string) {
   const userAgent = headerList.get("user-agent") || "unknown";
   const ip = headerList.get("x-forwarded-for") || headerList.get("x-real-ip") || "127.0.0.1";
   
-  // URL страницы редиректа
-  const url = `${headerList.get("host")}/r/${slug}`;
+  // Используем фиксированный путь для одного клиента
+  const url = `https://${headerList.get("host")}/r/${client.slug}`;
 
   const result = await sendTikTokEvent({
     accessToken: client.accessToken,
