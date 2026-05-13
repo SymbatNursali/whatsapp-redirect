@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import Script from "next/script";
-import { notFound, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { client } from "@/lib/clients";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { getTikTokPixelScript } from "@/lib/tiktok";
 
-import { trackRedirectAction } from "./actions";
+import { trackClickAction } from "./actions";
 
 export default function RedirectPage() {
   const params = useParams();
@@ -16,46 +16,63 @@ export default function RedirectPage() {
     : (params.slug ?? "unknown");
 
   const whatsappUrl = buildWhatsAppUrl(client.phone, client.whatsappMessage);
+  const [clicked, setClicked] = useState(false);
 
+  // ViewContent на загрузке страницы — единственное автособытие
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const win = window as any;
-      const eventId = `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      // Отправляем серверное событие (Conversion API)
-      trackRedirectAction(sourceSlug, eventId).catch(console.error);
-
-      // Даем небольшую паузу для загрузки пикселя и отправляем события
-      const timer = setTimeout(() => {
-        try {
-          if (win.ttq) {
-            // Отправляем Contact при автоматическом переходе с тем же eventId для дедупликации
-            win.ttq.track("Contact", {
-              content_name: "auto_redirect",
-              content_type: "lead",
-              client_slug: client.slug,
-              source_slug: sourceSlug,
-            }, { event_id: eventId });
-            
-            // Также отправим ViewContent
-            win.ttq.track("ViewContent", {
-              content_name: "redirect_page",
-              content_type: "lead",
-              client_slug: client.slug,
-              source_slug: sourceSlug,
-            }, { event_id: `view-${eventId}` });
-          }
-        } catch (error) {
-          console.error("TikTok tracking error:", error);
+    const timer = setTimeout(() => {
+      try {
+        const win = window as any;
+        if (win.ttq) {
+          win.ttq.track("ViewContent", {
+            content_name: "redirect_page",
+            content_type: "lead",
+            source_slug: sourceSlug,
+          });
         }
+      } catch (error) {
+        console.error("TikTok ViewContent error:", error);
+      }
+    }, 500); // ждём загрузки пикселя
 
-        // Автоматический редирект
-        window.location.href = whatsappUrl;
-      }, 300); // 300ms as requested for speed
+    return () => clearTimeout(timer);
+  }, [sourceSlug]);
 
-      return () => clearTimeout(timer);
+  const handleWhatsAppClick = () => {
+    if (clicked) return; // защита от двойного клика
+    setClicked(true);
+
+    const win = window as any;
+    const eventId = `click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Отправляем клиентские события TikTok Pixel
+    try {
+      if (win.ttq) {
+        win.ttq.track("Contact", {
+          content_name: "whatsapp_click",
+          content_type: "lead",
+          source_slug: sourceSlug,
+        }, { event_id: eventId });
+
+        // Fallback-событие для тестирования (убрать после того как Contact заработает)
+        win.ttq.track("SubmitForm", {
+          content_name: "whatsapp_click",
+          content_type: "lead",
+          source_slug: sourceSlug,
+        }, { event_id: `sf-${eventId}` });
+      }
+    } catch (error) {
+      console.error("TikTok click tracking error:", error);
     }
-  }, [whatsappUrl, client.slug, sourceSlug]);
+
+    // Отправляем серверное событие (Conversion API)
+    trackClickAction(sourceSlug, eventId).catch(console.error);
+
+    // Редирект в WhatsApp через 200ms после отправки событий
+    setTimeout(() => {
+      window.location.href = whatsappUrl;
+    }, 200);
+  };
 
   return (
     <>
@@ -67,12 +84,53 @@ export default function RedirectPage() {
         }}
       />
 
-      <main className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          {/* Минимальный индикатор для прохождения модерации TikTok */}
-          <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-neutral-500 text-sm">Переадресация...</p>
-        </div>
+      <main
+        style={{
+          minHeight: "100vh",
+          backgroundColor: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+          margin: 0,
+        }}
+      >
+        <button
+          id="whatsapp-cta"
+          onClick={handleWhatsAppClick}
+          disabled={clicked}
+          style={{
+            width: "90%",
+            maxWidth: "360px",
+            height: "58px",
+            backgroundColor: clicked ? "#a0d6b4" : "#25D366",
+            color: "#ffffff",
+            fontSize: "17px",
+            fontWeight: 600,
+            border: "none",
+            borderRadius: "14px",
+            cursor: clicked ? "default" : "pointer",
+            fontFamily: "Arial, Helvetica, sans-serif",
+            letterSpacing: "0.2px",
+            transition: "background-color 0.2s ease, transform 0.1s ease",
+            WebkitTapHighlightColor: "transparent",
+            userSelect: "none",
+          }}
+          onMouseDown={(e) => {
+            if (!clicked) (e.currentTarget.style.transform = "scale(0.97)");
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+          onTouchStart={(e) => {
+            if (!clicked) (e.currentTarget.style.transform = "scale(0.97)");
+          }}
+          onTouchEnd={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          {clicked ? "Переход..." : "Перейти в WhatsApp"}
+        </button>
       </main>
     </>
   );

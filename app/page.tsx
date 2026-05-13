@@ -1,42 +1,64 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import Script from "next/script";
 import { client } from "@/lib/clients";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { getTikTokPixelScript } from "@/lib/tiktok";
-import { trackRedirectAction } from "./r/[slug]/actions";
+import { trackClickAction } from "./r/[slug]/actions";
 
 export default function Home() {
   const whatsappUrl = buildWhatsAppUrl(client.phone, client.whatsappMessage);
+  const [clicked, setClicked] = useState(false);
 
+  // ViewContent на загрузке страницы
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const win = window as any;
-      const eventId = `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      // Отправляем серверное событие
-      trackRedirectAction("root", eventId).catch(console.error);
-
-      const timer = setTimeout(() => {
-        try {
-          if (win.ttq) {
-            win.ttq.track("Contact", {
-              content_name: "root_redirect",
-              content_type: "lead",
-              client_slug: client.slug,
-            }, { event_id: eventId });
-          }
-        } catch (error) {
-          console.error("TikTok tracking error:", error);
+    const timer = setTimeout(() => {
+      try {
+        const win = window as any;
+        if (win.ttq) {
+          win.ttq.track("ViewContent", {
+            content_name: "home_page",
+            content_type: "lead",
+          });
         }
+      } catch (error) {
+        console.error("TikTok ViewContent error:", error);
+      }
+    }, 500);
 
-        window.location.href = whatsappUrl;
-      }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
-      return () => clearTimeout(timer);
+  const handleWhatsAppClick = () => {
+    if (clicked) return;
+    setClicked(true);
+
+    const win = window as any;
+    const eventId = `click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+      if (win.ttq) {
+        win.ttq.track("Contact", {
+          content_name: "whatsapp_click",
+          content_type: "lead",
+        }, { event_id: eventId });
+
+        win.ttq.track("SubmitForm", {
+          content_name: "whatsapp_click",
+          content_type: "lead",
+        }, { event_id: `sf-${eventId}` });
+      }
+    } catch (error) {
+      console.error("TikTok click tracking error:", error);
     }
-  }, [whatsappUrl]);
+
+    trackClickAction("root", eventId).catch(console.error);
+
+    setTimeout(() => {
+      window.location.href = whatsappUrl;
+    }, 200);
+  };
 
   return (
     <>
@@ -48,11 +70,53 @@ export default function Home() {
         }}
       />
 
-      <main className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-neutral-500 text-sm">Переадресация...</p>
-        </div>
+      <main
+        style={{
+          minHeight: "100vh",
+          backgroundColor: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+          margin: 0,
+        }}
+      >
+        <button
+          id="whatsapp-cta"
+          onClick={handleWhatsAppClick}
+          disabled={clicked}
+          style={{
+            width: "90%",
+            maxWidth: "360px",
+            height: "58px",
+            backgroundColor: clicked ? "#a0d6b4" : "#25D366",
+            color: "#ffffff",
+            fontSize: "17px",
+            fontWeight: 600,
+            border: "none",
+            borderRadius: "14px",
+            cursor: clicked ? "default" : "pointer",
+            fontFamily: "Arial, Helvetica, sans-serif",
+            letterSpacing: "0.2px",
+            transition: "background-color 0.2s ease, transform 0.1s ease",
+            WebkitTapHighlightColor: "transparent",
+            userSelect: "none",
+          }}
+          onMouseDown={(e) => {
+            if (!clicked) (e.currentTarget.style.transform = "scale(0.97)");
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+          onTouchStart={(e) => {
+            if (!clicked) (e.currentTarget.style.transform = "scale(0.97)");
+          }}
+          onTouchEnd={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          {clicked ? "Переход..." : "Перейти в WhatsApp"}
+        </button>
       </main>
     </>
   );
